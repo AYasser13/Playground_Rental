@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 🎭 User Roles
+enum UserRole {
+  PLAYER
+  OWNER
+  SUPER_ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  FAILED
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  passwordHash      String         // bcrypt hash
+  name              String
+  role              UserRole       @default(PLAYER)
+  phone             String?
+  isEmailVerified   Boolean        @default(false)
+  verificationToken String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+
+  playgrounds       Playground[]  
+  bookings          Booking[]
+  reviews           Review[]
+  notifications     Notification[]
+  payments          Payment[]
+
+  @@map("users")
+}
+
+model Playground {
+  id          String    @id @default(cuid())
+  name        String
+  description String    @db.Text
+  address     String
+  city        String
+  state       String
+  zipCode     String
+  price       Float
+  images      String    @db.LongText  // Changed from @db.Text to @db.LongText
+  sportType   String
+  amenities   String    @db.Text  // JSON string
+  isAvailable Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  bookings    Booking[]
+  reviews     Review[]
+
+  @@index([ownerId])
+  @@map("playgrounds")
+}
+
+model Booking {
+  id           String        @id @default(cuid())
+  startTime    DateTime
+  endTime      DateTime
+  status       BookingStatus @default(PENDING)
+  totalAmount  Float
+  notes        String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  playgroundId String
+  playground   Playground    @relation(fields: [playgroundId], references: [id], onDelete: Cascade)
+
+  payment      Payment?
+  review       Review?
+
+  @@index([userId])
+  @@index([playgroundId])
+  @@map("bookings")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float
+  status        PaymentStatus @default(PENDING)
+  method        String
+  transactionId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  bookingId     String        @unique
+  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("payments")
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  rating       Int
+  comment      String?    @db.Text
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  playgroundId String
+  playground   Playground @relation(fields: [playgroundId], references: [id], onDelete: Cascade)
+
+  bookingId    String     @unique
+  booking      Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([playgroundId])
+  @@map("reviews")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  type      String
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
